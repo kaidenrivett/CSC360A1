@@ -11,16 +11,49 @@
 #include <unistd.h>
 // #include "header.h"
 
+//// Function Prototypes
+int tokenizeInput(char** input);
+void processHandler();
+void inputHandler();
+void procRemoval(pid_t pid);
+
 // linked list data structure to store the processes
 typedef struct proc {
-	pid_t pid;
 	struct proc *next;
+	pid_t pid;
 	char proc_path[256];
+	// this may need to be an integer instead
 	bool run;
 } proc;
 proc* proc_list = NULL;
 
-int tokenize_Input(char** input){
+proc * findProc(pid_t pid){
+	proc * p = proc_list;
+	while(p!=NULL){
+		if(p->pid == pid){
+			return p;
+		}
+		p = p->next;
+	}
+	return NULL;
+}
+
+///////////////////// 			MAIN
+int main() {
+
+	while(1){
+		char * user_input[256];
+		int token_succ = tokenizeInput(user_input);
+		processHandler();
+		if(token_succ == 1){
+			// handleInput(user_input);
+		}
+}
+return 0;
+}
+
+
+int tokenizeInput(char** input){
 	char * rline = readline("PMan: > ");
 	if(strcmp(rline, "exit") != 0){
 		return -1;
@@ -41,18 +74,54 @@ int tokenize_Input(char** input){
 	return 1;
 }
 
-int main() {
+void processHandler() {
+	pid_t pid;
+	int state;
 
-	while(1){
-		char * user_input[256];
-		int token_succ = tokenize_Input(user_input);
-		if(token_succ){
-			// executeInput(user_input);
-			printf("token was a success\n");
+	while(1) {
+		pid = waitpid(-1, &state, WCONTINUED | WUNTRACED | WNOHANG);
+		if(pid>0){
+			if(WIFSTOPPED(state)){
+				printf("Background process %d has been stopped.\n", pid);
+				proc* p = findProc(pid);
+				p->run = false;
+			} else if(WIFCONTINUED(state)){
+					printf("Background process %d has started.\n", pid);
+					proc* p = findProc(pid);
+					p->run = true;
+		} else if(WIFSIGNALED(state)){
+			printf("Background process %d has been killed.\n", pid);
+			procRemoval(pid);
+		} else if(WIFEXITED(state)){
+			printf("Background process %d has been terminated.\n", pid);
+			procRemoval(pid);
 		}
+	} else {break;}
 }
-return 0;
 }
+
+void procRemoval(pid_t pid){
+	if(findProc(pid) == NULL){
+		return;
+	}
+	proc * p = proc_list;
+	proc * p1 = NULL;
+	while(p!=NULL){
+		if(p->pid = pid){
+			if(p == proc_list){
+				proc_list = proc_list->next;
+			} else {
+				p1->next = p->next;
+			}
+			free(p);
+			return;
+		}
+		p1 = p;
+		p = p->next;
+	}
+}
+
+
 
 
 int bg_entry(char **argv) {
