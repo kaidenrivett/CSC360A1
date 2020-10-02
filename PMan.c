@@ -8,10 +8,6 @@
 #include <sys/types.h>
 #include <readline/readline.h>
 
-#define INPUTSIZE
-
-
-
 //// Function Protypes ////
 
 // functions dealing with user input
@@ -36,16 +32,16 @@ void procRemoval(pid_t pid); // remove the process name from the linked list
 
 
 //proc created for linked list of proc_namees
-typedef struct proc{
+typedef struct process{
 	pid_t pid;			//proc_name id
 	char* proc_name;		//proc_name name
 	char proc_path[512];		//proc_path to proc_name
 	int running; 		//0 = off, 1 = on
-	struct proc* next;	//link to next proc
-}proc;
+	struct process* next;	//link to next proc
+}process;
 
 //reference for linked list head
-proc* proc_nameList = NULL;
+process* proc_nameList = NULL;
 
 //list of accepted commands
 char* user_commands[] = {
@@ -59,13 +55,13 @@ char* user_commands[] = {
 };
 
 // search for proc id in linked list
-proc* searchProc(pid_t pid){
-	proc* p = proc_nameList;
-	while(p != NULL){
-		if(p->pid == pid){
-			return p;
+process* searchProc(pid_t pid){
+	process* proc = proc_nameList;
+	while(proc != NULL){
+		if(proc->pid == pid){
+			return proc;
 		}
-		p = p->next;
+		proc = proc->next;
 	}
 	return NULL;
 }
@@ -74,9 +70,9 @@ proc* searchProc(pid_t pid){
 int main(){
 	while(1){
 		char* input[1024];
-		int success = tokenizeInput(input);
+		int ready = tokenizeInput(input);
 		procUpdate();
-		if(success){
+		if(ready){
 			inputHandler(input);
 		}
 		procUpdate();
@@ -94,10 +90,10 @@ int tokenizeInput(char** input){
 	if(!strcmp(rline, "")){
 		return 0;
 	}
-	int a;
+	int i;
 	char* t = strtok(rline, " ");
-	for(a = 0; a < sizeof(rline)/sizeof(rline[0]); a++){
-		input[a] = t;
+	for(i = 0; i < sizeof(rline)/sizeof(rline[0]); i++){
+		input[i] = t;
 		t = strtok(NULL, " ");
 		if(!t){
 			break;
@@ -106,44 +102,45 @@ int tokenizeInput(char** input){
 	return 1;
 }
 
-//check if input is valid
 int commandInspector(char* input){
 	if(input == NULL){
 		return 0;
 	}
-	int a;
-	for(a = 0; a < strlen(input); a++){
-		if(!isdigit(input[a])){
+	int i;
+	for(i = 0; i < strlen(input); i++){
+		if(!isdigit(input[i])){
 			return 0;
 		}
 	}
 	return 1;
 }
 
-//executes command to do particular task
 void inputHandler(char** input){
-	int cmd = -1;
+	int command = -1;
 	int i;
-	for(i = 0; i < 6; i++){
+	// index through the available user commands
+	for(i = 0; i < 7; i++){
 		if(!strcmp(input[0], user_commands[i])){
-			cmd = i;
+			command = i;
 			break;
 		}
 	}
-	switch(cmd){
-		case 0:{//bg <command>
+	switch(command){
+		// case 0 relates to bg command
+		case 0:{
 			if(input[1] != NULL){
 				bgEntry(input);
 				break;
 			}
 			printf("Error: invalid command to background\n");
 			return;
-
 		}
+		// case 1 relates to bglist
 		case 1:{ //bgList
 			bgList();
 			break;
 		}
+		// case 2 relates to bgkill
 		case 2:{//bgkill <proc_name id>
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
@@ -155,6 +152,7 @@ void inputHandler(char** input){
 			printf("Error: invalid pid\n");
 			return;
 		}
+		// case 3 relates to bgstop
 		case 3:{//bgstop <proc_name id>
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
@@ -164,6 +162,7 @@ void inputHandler(char** input){
 			printf("Error: invalid pid\n");
 			return;
 		}
+		// case 4 relates to bstart
 		case 4:{//bgstart <proc_name id>
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
@@ -173,6 +172,7 @@ void inputHandler(char** input){
 			printf("Error: invalid pid\n");
 			return;
 		}
+		// case 5 relates to pstat
 		case 5:{//pstat <proc_name id>
 			if(input[1] != NULL){
 				pid_t pid = atoi(input[1]);
@@ -182,6 +182,7 @@ void inputHandler(char** input){
 			printf("Error: invalid pid\n");
 			return;
 		}
+		// case 6 relates to exiting the PMan
 		// case 6:{
 		// 	if(strcmp(input[1],"exit")){
 		// 		printf("Exiting PMan. Goodbye.\n");
@@ -195,8 +196,11 @@ void inputHandler(char** input){
 	}
 }
 
+// created bgEntry and zombie process with reference to Tutorial A1_sampleCode.c in Assignment1 File from connex
 
-//add a new proc_name id
+
+///// Check file on connex on how to implement execvp when you use ./inf and have 2 arguments passed.
+
 void bgEntry(char** input){
 	pid_t pid;
 	pid = fork();
@@ -209,23 +213,23 @@ void bgEntry(char** input){
 	}
 	else if(pid > 0) {
 
-		// check for zombie process here
+		// check for zombie process
 		int status;
-		int val = waitpid(pid, &status, WNOHANG | WUNTRACED| WCONTINUED);
-		if(val == -1){
+		int retVal = waitpid(pid, &status, WNOHANG | WUNTRACED| WCONTINUED);
+		if(retVal == -1){
 			printf("Error: waitpid failed\n");
 			exit(1);
 		}
+		// using cwd to get current working directory
 		char cwd[256];
 		getcwd(cwd, sizeof(cwd));
 		procMerge(pid, input[1], cwd);
 		printf("Background process %d has started.\n", pid);
-		proc* p = searchProc(pid);
-		p->running = 1;
+		process* proc = searchProc(pid);
+		proc->running = 1;
 		usleep(100);
 		sleep(1);
 	}
-
 	else {
 		perror("fork failed");
 		exit(EXIT_FAILURE);
@@ -234,29 +238,29 @@ void bgEntry(char** input){
 
 //shows all running proc_name ids
 void bgList(){
-	int active = 0;
-	int total = 0;
-	printf("=== Active Process Names ===\n");
-	proc* p = proc_nameList;
-	while(p != NULL){
-		if(p->running){
-			printf("%d:\t %s/%s\n", p->pid, p->proc_path, p->proc_name);
-			active++;
+	int total_proc = 0;
+	int active_proc = 0;
+	printf("------- Active Process Names -------\n");
+	process* proc = proc_nameList;
+	while(proc != NULL){
+		if(proc->running){
+			printf("%d:\t%s/%s\n", proc->pid,proc->proc_path,proc->proc_name);
+			active_proc++;
 		}
-		total++;
-		p = p->next;
+		total_proc++;
+		proc = proc->next;
 	}
-	if(active != total){
-		printf("=== Inactive Process Names ===\n");
-		p = proc_nameList;
-		while(p != NULL){
-			if(!p->running){
-				printf("%d:\t %s/%s\n\n", p->pid, p->proc_path, p->proc_name);
+	if(active_proc != total_proc){
+		printf("------- Inactive Process Names -------\n");
+		proc = proc_nameList;
+		while(proc != NULL){
+			if(!proc->running){
+				printf("%d:\t%s/%s\n\n", proc->pid,proc->proc_path,proc->proc_name);
 			}
-			p = p->next;
+			proc = proc->next;
 		}
 	}
-	printf("Total background jobs active:\t%d\n\n", active);
+	printf("Total background jobs active:\t%d\n\n", active_proc);
 }
 
 //terminates a proc_name id
@@ -295,8 +299,8 @@ void bgStart(pid_t pid){
 	}
 	if(kill(pid, SIGCONT) == 0){
 		printf("Background process %d has started.\n", pid);
-		proc* p = searchProc(pid);
-		p->running = 1;
+		process* proc = searchProc(pid);
+		proc->running = 1;
 		usleep(100);
 	}
 	else{
@@ -318,27 +322,27 @@ void pStat(pid_t pid){
 	if(fp != NULL){
 		char ret = 0;
 		char data[100];
-		int a = 1;
+		int i = 1;
 		do{
 			ret = fscanf(fp, "%s", data);
-			if(a == 2){
+			if(i == 2){
 				printf("comm:\t%s\n", data);
 			}
-			if(a == 3){
+			if(i == 3){
 				printf("state:\t%s\n", data);
 			}
-			if(a == 14){
+			if(i == 14){
 				float utime = atof(data)/sysconf(_SC_CLK_TCK);
 				printf("utime:\t%f\n", utime);
 			}
-			if(a == 15){
+			if(i == 15){
 				float stime = atof(data)/sysconf(_SC_CLK_TCK);
 				printf("stime:\t%f\n", stime);
 			}
-			if(a == 24){
+			if(i == 24){
 				printf("rss:\t%s\n", data);
 			}
-			a++;
+			i++;
 		}while(ret != EOF);
 		fclose(fp);
 	}
@@ -351,9 +355,11 @@ void pStat(pid_t pid){
 		char data[100];
 		while(fgets(data, sizeof(data), fp)){
 			char* c = strtok(data, "\t");
+			// change this to !strcmp()?
 			if(strcmp(c, "voluntary_ctxt_switches:") == 0){
 				printf("voluntary_ctxt_switches:\t%s\n", strtok(strtok(NULL, "\t"), "\n"));
 			}
+			// change this to !strcmp()?
 			else if(strcmp(c, "nonvoluntary_ctxt_switches:") == 0){
 				printf("nonvoluntary_ctxt_switches:\t%s\n", strtok(strtok(NULL, "\t"), "\n"));
 			}
@@ -367,21 +373,21 @@ void pStat(pid_t pid){
 
 //add input proc_name to linked list
 void procMerge(pid_t pid, char* proc_name, char* cwd){
-	proc* p = (proc*)malloc(sizeof(proc));
-	p->pid = pid;
-	p->proc_name = proc_name;
-	strcpy(p->proc_path, cwd);
-	p->running = 1;
-	p->next = NULL;
+	process* proc = (process*)malloc(sizeof(proc));
+	proc->pid = pid;
+	proc->proc_name = proc_name;
+	strcpy(proc->proc_path, cwd);
+	proc->running = 1;
+	proc->next = NULL;
 	if(proc_nameList == NULL){
-		proc_nameList = p;
+		proc_nameList = proc;
 	}
 	else{
-		proc* temp = proc_nameList;
-		while(temp->next != NULL){
-			temp = temp->next;
+		process* tmp = proc_nameList;
+		while(tmp->next != NULL){
+			tmp = tmp->next;
 		}
-		temp->next = p;
+		tmp->next = proc;
 	}
 }
 
@@ -393,13 +399,13 @@ void procUpdate(){
 		if(pid > 0){
 			if(WIFSTOPPED(status)){
 				printf("Background proc_name %d was stopped.\n", pid);
-				proc* p = searchProc(pid);
-				p->running = 0;
+				process* proc = searchProc(pid);
+				proc->running = 0;
 			}
 			else if(WIFCONTINUED(status)){
 				printf("Background proc_name %d was started.\n", pid);
-				proc* p = searchProc(pid);
-				p->running = 1;
+				process* proc = searchProc(pid);
+				proc->running = 1;
 			}
 			else if(WIFSIGNALED(status)){
 				printf("Background proc_name %d was killed.\n", pid);
@@ -421,20 +427,20 @@ void procRemoval(pid_t pid){
 	if(searchProc(pid) == NULL){
 		return;
 	}
-	proc* p = proc_nameList;
-	proc* p2 = NULL;
-	while(p != NULL){
-		if(p->pid == pid){
-			if(p == proc_nameList){
+	process* proc1 = proc_nameList;
+	process* proc2 = NULL;
+	while(proc1 != NULL){
+		if(proc1->pid == pid){
+			if(proc1 == proc_nameList){
 				proc_nameList = proc_nameList->next;
 			}
 			else{
-				p2->next = p->next;
+				proc2->next = proc1->next;
 			}
-			free(p);
+			free(proc1);
 			return;
 		}
-		p2 = p;
-		p = p->next;
+		proc2 = proc;
+		proc = proc->next;
 	}
 }
