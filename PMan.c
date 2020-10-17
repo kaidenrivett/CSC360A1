@@ -1,15 +1,21 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <ctype.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <readline/readline.h>
+#define _GNU_SOURCE
 
+///////////////////////////////////////////////////////////////////////////
+/////////////////////// IMPORTED LIBRARIES ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+#include <stdio.h>			 				// printf(), perror()
+#include <stdlib.h>			 				// malloc()
+#include <unistd.h>			 				// fork(), execvp()
+#include <string.h>     				// strcmp(), strcpy(), strlen(), strtok()
+#include <ctype.h>       				// isdigit()
+#include <signal.h>							// kill(), SIGTERM, SIGKILL, SIGSTOP, SIGCONT
+#include <sys/wait.h>						// waitpid()
+#include <sys/types.h>					// pid_t
+#include <readline/readline.h>  // readline()
 
-//// Function Protypes ////
+//////////////////////////////////////////////////////////////////////////
+/////////////////////// FUNCTION PROTOTYPES /////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 // functions dealing with user input
 int tokenizeInput(char** input); // prompts user for input and tokenizes input
@@ -29,10 +35,7 @@ void procMerge(pid_t pid, char* proc_name, char* cwd); // add the process name t
 void procUpdate(); // informs current status of processes to the user
 void procRemoval(pid_t pid); // remove the process name from the linked list
 
-
-
-
-//proc created for linked list of proc_namees
+// linked list to store processes
 typedef struct process{
 	pid_t pid;
 	int state;
@@ -43,8 +46,9 @@ typedef struct process{
 process* proc_nameList = NULL;
 
 // possible user commands that can be inputted
-char* user_commands[] = {"bg","bglist","bgkill","bgstop","bgstart","pstat",};
+char* user_commands[] = {"bg","bglist","bgkill","bgstop","bgstart","pstat"};
 
+// searching linked list for process pid
 process* searchProc(pid_t pid){
 	process* proc = proc_nameList;
 	while(proc != NULL){
@@ -56,12 +60,14 @@ process* searchProc(pid_t pid){
 	return NULL;
 }
 
-
 int main(){
 	while(1){
 		char* cmd_input[1024];
 		int ready = tokenizeInput(cmd_input);
+		// update the linked list with newly added or removed processe
 		procUpdate();
+		// if tokenizing the input was successfull, linked list will be updated and the input
+		// will be passed on to the input handler
 		if(ready){
 			inputHandler(cmd_input);
 		}
@@ -96,6 +102,7 @@ int tokenizeInput(char** input){
 	return 1;
 }
 
+// determines whether the pid passed exists
 int commandInspector(char* input){
 	if(input == NULL){
 		return 0;
@@ -108,31 +115,34 @@ int commandInspector(char* input){
 	return 1;
 }
 
-//executes command to do particular task
+// executes command input to do specified task
 void inputHandler(char** input){
 	int cmd = -1;
-	int i;
-	for(i = 0; i < 6; i++){
+	// index through  all the user commands
+	for(int i = 0; i < 6; i++){
 		if(!strcmp(input[0], user_commands[i])){
 			cmd = i;
 			break;
 		}
 	}
 	switch(cmd){
-		case 0:{//bg <command>
+		// case 0 refers to "bg" command
+		case 0:{
 			if(input[1] != NULL){
 				bgEntry(input);
 				break;
 			}
-			printf("Error: invalid command to background\n");
+			printf("Error: user input invalid\n");
 			return;
 
 		}
-		case 1:{ //bgList
+		// case 1 refers to "bglist" command
+		case 1:{
 			bgList();
 			break;
 		}
-		case 2:{//bgkill <proc_name id>
+		//case 2 refers to "bgkill" command
+		case 2:{
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
 				if(pid != 0){
@@ -140,56 +150,51 @@ void inputHandler(char** input){
 				}
 				break;
 			}
-			printf("Error: invalid pid\n");
+			printf("Error: pid invalid\n");
 			return;
 		}
-		case 3:{//bgstop <proc_name id>
+		// case 3 refers to "bgstop" command
+		case 3:{
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
 				bgStop(pid);
 				break;
 			}
-			printf("Error: invalid pid\n");
+			printf("Error: pid invalid\n");
 			return;
 		}
-		case 4:{//bgstart <proc_name id>
+		// case 4 refers to "bgstart" command
+		case 4:{
 			if(commandInspector(input[1])){
 				pid_t pid = atoi(input[1]);
 				bgStart(pid);
 				break;
 			}
-			printf("Error: invalid pid\n");
+			printf("Error: pid invalid\n");
 			return;
 		}
-		case 5:{//pstat <proc_name id>
+		// case 5 refers to "pstat" command
+		case 5:{
 			if(input[1] != NULL){
 				pid_t pid = atoi(input[1]);
 				pStat(pid);
 				break;
 			}
-			printf("Error: invalid pid\n");
+			printf("Error: pid invalid\n");
 			return;
 		}
-		// case 6:{
-		// 	if(strcmp(input[1],"exit")){
-		// 		printf("Exiting PMan. Goodbye.\n");
-		// 		exit(EXIT_SUCCESS);
-		// 	}
-		// }
+		// default takes over whenever when an input that is not from the user commands list is used
 		default:{
-			printf("PMan: > %s:\tcommand not found\n", input[0]);
+			printf("PMan: > %s:    command not found\n", input[0]);
 			break;
 		}
 	}
 }
-
-
-//add a new proc_name id
+// created with reference to given A1_Samplecode.c file from Connex
 void bgEntry(char** input){
 	pid_t pid;
 	pid = fork();
 	if(pid == 0){
-		///
 		// created with reference to demo2.c file we were given on connex
 		if(strcmp(input[1], "./inf") == 0){
 		char *tag = (char *)malloc(sizeof(char));
@@ -203,19 +208,18 @@ void bgEntry(char** input){
 		exit(EXIT_SUCCESS);
 	}
 		/// normal input commands such as args and const etc
-		char* cmd = input[1];
-		if(execvp(cmd, &input[0]) < 0){
+		char* user_cmd = input[1];
+		if(execvp(user_cmd, &input[0]) < 0){
 			perror("Error on execvp");
 		}
 		exit(EXIT_SUCCESS);
 	}
 	else if(pid > 0) {
-
-		// check for zombie process here
+		// implemented method of checking zombie processes from A1_Sample code on connex
 		int status;
 		int retVal = waitpid(pid, &status, WNOHANG | WUNTRACED| WCONTINUED);
 		if(retVal == -1){
-			printf("Error: waitpid failed\n");
+			printf("waitpid failed\n");
 			exit(1);
 		}
 		// retrieve current working directory
@@ -223,171 +227,184 @@ void bgEntry(char** input){
 		getcwd(cwd, sizeof(cwd));
 		procMerge(pid, input[1], cwd);
 		printf("Background process %d has started.\n", pid);
-		process* p = searchProc(pid);
-		p->state = 1;
+		process* proc = searchProc(pid);
+		proc->state = 1;
 		usleep(100);
 		sleep(1);
-	}
-
-	else {
+	} else {
 		perror("fork failed");
 		exit(EXIT_FAILURE);
 }
 }
-
-//shows all state proc_name ids
+// Displays all active and inactive processes
 void bgList(){
-	int active = 0;
-	int total = 0;
-	printf("=== Active Process Names ===\n");
-	process* p = proc_nameList;
-	while(p != NULL){
-		if(p->state){
-			printf("%d:\t %s/%s\n", p->pid, p->proc_path, p->proc_name);
-			active++;
+	int active_proc = 0;
+	int total_proc = 0;
+	printf("\n------->   Active Process Names   <-------\n");
+	process* proc = proc_nameList;
+	// display all running processes
+	while(proc != NULL){
+		if(proc->state){
+			printf("%d:     %s/%s\n", proc->pid,proc->proc_path,proc->proc_name);
+			active_proc++;
 		}
-		total++;
-		p = p->next;
+		total_proc++;
+		proc = proc->next;
 	}
-	if(active != total){
-		printf("=== Inactive Process Names ===\n");
-		p = proc_nameList;
-		while(p != NULL){
-			if(!p->state){
-				printf("%d:\t %s/%s\n\n", p->pid, p->proc_path, p->proc_name);
+	if(active_proc != total_proc){
+		printf("\n------->   Inactive Process Names   <-------\n");
+		proc = proc_nameList;
+		// display all non-running processes
+		while(proc != NULL){
+			if(!proc->state){
+				printf("%d:     %s/%s\n", proc->pid,proc->proc_path,proc->proc_name);
 			}
-			p = p->next;
+			proc = proc->next;
 		}
 	}
-	printf("Total background jobs active:\t%d\n\n", active);
+	printf("Total background jobs:     %d\n\n", active_proc);
 }
-
-//terminates a proc_name id
+// allows user to kill a specified process with pid
 void bgKill(pid_t pid){
 	if(searchProc(pid) == NULL){
-		printf("Error: invalid pid\n");
+		perror("Error: pid invalid\n");
 		return;
 	}
+	// send the signal to terminate the process with pid
 	if(kill(pid, SIGTERM) == 0){
 		usleep(100);
 	}
 	else{
-		printf("Error: failed to execute bgkill.\n");
+		perror("Error: bgkill failed.\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
-//stops a state proc_name id
+// will temporarily stop the process with pid
 void bgStop(pid_t pid){
 	if(searchProc(pid) == NULL){
-		printf("Error: invalid pid\n");
+		perror("Error: pid invalid\n");
 		return;
 	}
+	// send the signal to stop the process with pid
 	if(kill(pid, SIGSTOP) == 0){
 		usleep(100);
 	}
 	else{
-		printf("Error: failed to execute bgstop.\n");
+		perror("Error: bgstop failed.\n");
+		exit(EXIT_FAILURE);
 	}
 }
-
-//starts a stopped proc_name id
+// will start the temporarily stopped process with pid
 void bgStart(pid_t pid){
 	if(searchProc(pid) == NULL){
-		printf("Error: invalid pid\n");
+		perror("Error: pid invalid\n");
 		return;
 	}
 	if(kill(pid, SIGCONT) == 0){
 		printf("Background process %d has started.\n", pid);
-		process* p = searchProc(pid);
-		p->state = 1;
+		process* proc = searchProc(pid);
+		proc->state = 1;
 		usleep(100);
 	}
 	else{
-		printf("Error: failed to execute bgstart\n");
+		perror("Error: bgstart failed\n");
+		exit(EXIT_FAILURE);
 	}
 }
-
-//gives stats and status of a proc_name id
+// displays the process stats and statuses of the process with pid
 void pStat(pid_t pid){
 	if(searchProc(pid) == NULL){
 		printf("Error: Process %d does not exist.\n", pid);
 		return;
 	}
-	char statPath[32];
-	char statusPath[32];
-	sprintf(statPath, "/proc/%d/stat", pid);
-	sprintf(statusPath, "/proc/%d/status", pid);
-	FILE* fp = fopen(statPath, "r");
-	if(fp != NULL){
-		char ret = 0;
-		char data[100];
-		int a = 1;
+	char system_stat[64];
+	char system_status[64];
+	// using sprintf to read stats and status into appropriate char arrays
+	sprintf(system_status, "/proc/%d/status", pid);
+	sprintf(system_stat, "/proc/%d/stat", pid);
+	// implemented reading only certain lines from a file from stackoverflow: C Programming - Read specific line from text file
+	FILE* file = fopen(system_stat, "r");
+	if(file != NULL){
+		int line_number = 1;
+		char retVal = 0;
+		char info[100];
 		do{
-			ret = fscanf(fp, "%s", data);
-			if(a == 2){
-				printf("comm:\t%s\n", data);
+			retVal = fscanf(file, "%s", info);
+			if(line_number == 2){
+				printf("comm:   %s\n", info);
 			}
-			if(a == 3){
-				printf("state:\t%s\n", data);
+			if(line_number == 3){
+				printf("state:   %s\n", info);
 			}
-			if(a == 14){
-				float utime = atof(data)/sysconf(_SC_CLK_TCK);
-				printf("utime:\t%f\n", utime);
+			if(line_number == 14){
+				// convert into float and divide by sysconf(_SC_CLK_TCK) so time is displayed properly
+				float utime = atof(info)/sysconf(_SC_CLK_TCK);
+				printf("utime:   %f\n", utime);
 			}
-			if(a == 15){
-				float stime = atof(data)/sysconf(_SC_CLK_TCK);
-				printf("stime:\t%f\n", stime);
+			if(line_number == 15){
+				// convert into float so time is displayed properly
+				float stime = atof(info)/sysconf(_SC_CLK_TCK);
+				printf("stime:   %f\n", stime);
 			}
-			if(a == 24){
-				printf("rss:\t%s\n", data);
+			if(line_number == 24){
+				printf("rss:     %s\n", info);
 			}
-			a++;
-		}while(ret != EOF);
-		fclose(fp);
+			line_number++;
+		} while(retVal != EOF);
+				fclose(file);
 	}
 	else{
 		printf("Error: could not read stat file.\n");
 	}
-	fp = NULL;
-	fp = fopen(statusPath, "r");
-	if(fp != NULL){
-		char data[100];
-		while(fgets(data, sizeof(data), fp)){
-			char* c = strtok(data, "\t");
-			if(strcmp(c, "voluntary_ctxt_switches:") == 0){
-				printf("voluntary_ctxt_switches:\t%s\n", strtok(strtok(NULL, "\t"), "\n"));
+	// collect ctxt_switches data, tokenize it, and store it into info array
+	file = NULL;
+	file = fopen(system_status, "r");
+	if(file != NULL){
+		char info[256];
+		while(fgets(info, sizeof(info), file)){
+			// tokenize info file and locate the voluntary_ctxt_switches and nonvoluntary_ctxt_switches
+			// information we need
+			char* t = strtok(info, "\t");
+			if(strcmp(t,"voluntary_ctxt_switches:") == 0) {
+				// tokenize with tab character as delimiter and then tokenize
+				// with newline character
+				printf("voluntary_ctxt_switches:\t%s\n",strtok(strtok(NULL, "\t"), "\n"));
 			}
-			else if(strcmp(c, "nonvoluntary_ctxt_switches:") == 0){
-				printf("nonvoluntary_ctxt_switches:\t%s\n", strtok(strtok(NULL, "\t"), "\n"));
+			else if(strcmp(t,"nonvoluntary_ctxt_switches:") == 0) {
+				printf("nonvoluntary_ctxt_switches:\t%s\n",strtok(strtok(NULL, "\t"), "\n"));
 			}
 		}
-		fclose(fp);
-	}
-	else{
-		printf("Error: could not read status file.\n");
+		fclose(file);
+	} else{
+		printf("Status information file could not be read.\n");
 	}
 }
 
-//add input proc_name to linked list
+// merging new process into linked list
+// this was created with reference to GeeksforGeeks: Linked List | Set 2 (Inserting a node)
 void procMerge(pid_t pid, char* proc_name, char* cwd){
-	process* p = (process*)malloc(sizeof(process));
-	p->pid = pid;
-	p->proc_name = proc_name;
-	strcpy(p->proc_path, cwd);
-	p->state = 1;
-	p->next = NULL;
+	process* proc = (process*)malloc(sizeof(process));
+	proc->pid = pid;
+	proc->proc_name = proc_name;
+	strcpy(proc->proc_path, cwd);
+	proc->state = 1;
+	proc->next = NULL;
+	// if linkedlist is empty make new process as head of the linked list
 	if(proc_nameList == NULL){
-		proc_nameList = p;
+		proc_nameList = proc;
 	}
 	else{
-		process* temp = proc_nameList;
-		while(temp->next != NULL){
-			temp = temp->next;
+		// create temporary node, set it to next and store new process in that location
+		process* tmp = proc_nameList;
+		while(tmp->next != NULL){
+			tmp = tmp->next;
 		}
-		temp->next = p;
+		tmp->next = proc;
 	}
 }
 
+// the process update function used implementation from demo2.c for the macros
 void procUpdate(){
 	pid_t pid;
 	int status;
@@ -395,21 +412,28 @@ void procUpdate(){
 		pid = waitpid(-1, &status, WCONTINUED | WNOHANG | WUNTRACED);
 		if(pid > 0){
 			if(WIFSTOPPED(status)){
-				printf("Background proc_name %d was stopped.\n", pid);
-				process* p = searchProc(pid);
-				p->state = 0;
+				printf("Background process %d has stopped.\n", pid);
+				printf("Stopped by signal %d\n", WSTOPSIG(status));
+				// change state of process in list to not running
+				process* proc = searchProc(pid);
+				proc->state = 0;
 			}
 			else if(WIFCONTINUED(status)){
-				printf("Background proc_name %d was started.\n", pid);
-				process* p = searchProc(pid);
-				p->state = 1;
+				printf("Background process %d has been started.\n", pid);
+				// change state of process in list to running
+				process* proc = searchProc(pid);
+				proc->state = 1;
 			}
 			else if(WIFSIGNALED(status)){
-				printf("Background proc_name %d was killed.\n", pid);
+				printf("Background process %d has been killed.\n", pid);
+				printf("Killed by signal %d\n", WTERMSIG(status));
+				// remove process from linked list
 				procRemoval(pid);
 			}
 			else if(WIFEXITED(status)){
-				printf("Background proc_name %d was terminated.\n", pid);
+				printf("Background process %d has been terminated.\n", pid);
+				printf("Normal, status code = %d\n", WEXITSTATUS(status));
+				// remove process from linked list
 				procRemoval(pid);
 			}
 		}
@@ -419,25 +443,29 @@ void procUpdate(){
 	}
 }
 
-//remove proc_name from linked list
+// linked list removal was created with reference to Geeks for Geeks: Linked List | Set 3 (Deleting a node)
 void procRemoval(pid_t pid){
+	process* proc1 = proc_nameList;
+	process* proc2 = NULL;
+	// if pid is not present in list then return
 	if(searchProc(pid) == NULL){
 		return;
 	}
-	process* p = proc_nameList;
-	process* p2 = NULL;
-	while(p != NULL){
-		if(p->pid == pid){
-			if(p == proc_nameList){
+	// search for pid to be removed while keeping track of the previous pid
+	// so we can change proc_nameList to next
+	while(proc1 != NULL){
+		if(proc1->pid == pid){
+			if(proc1 == proc_nameList){
 				proc_nameList = proc_nameList->next;
 			}
 			else{
-				p2->next = p->next;
+				proc2->next = proc1->next;
 			}
-			free(p);
+			// free removed node
+			free(proc1);
 			return;
 		}
-		p2 = p;
-		p = p->next;
+		proc2 = proc1;
+		proc1 = proc1->next;
 	}
 }
