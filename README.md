@@ -1,2 +1,0 @@
-# CSC360A1
-PMan allows a program to be started in the background—that is, the program is running, but PMan continues to accept input from the user. You will implement a simplified version of background execution that supports executing processes in the background. If the user types: bg foo, your PMan will start the program foo in the background. That is, the program foo will execute and PMan will also continue to execute and give the prompt to accept more commands.
